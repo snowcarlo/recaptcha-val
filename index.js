@@ -38,7 +38,7 @@ document.getElementById("submit").addEventListener("click",()=>{
 
 
 // -------------------- CAPTCHA LOGIC --------------------
-const imageCount = 20
+const imageCount = 24
 
 // Targets split into 2 stages: 3 targets first, then the other 3
 const stage1Targets = [4,5,6]
@@ -68,10 +68,9 @@ const shuffle = (arr) => {
 }
 
 // Priority queue guarantees which valid images appear next.
-// Stage 1 starts with only three valid images.
 let priorityQueue = shuffle([...stage1Targets])
 
-// Deck is for filler images only – excludes ALL targets (4..9), so stage2 targets cannot appear in stage 1.
+// Deck is for filler images only – excludes ALL targets (4..9)
 const nonTargetNumbers = []
 for (let n = 1; n <= imageCount; n++) {
   if (!requiredTargets.has(n)) nonTargetNumbers.push(n)
@@ -116,9 +115,8 @@ const setImageNumber = (imgEl, n) => {
     return
   }
 
-  // Safety: never show stage2 targets during stage 1 (even if something changes later)
+  // Safety: never show stage2 targets during stage 1
   if (stage === 1 && stage2Targets.includes(n)) {
-    // fall back to a filler draw
     n = drawFromDeck()
     if (n === null) {
       imgEl.setAttribute("src", "")
@@ -136,7 +134,6 @@ const setImageNumber = (imgEl, n) => {
 }
 
 const drawFromPriority = () => {
-  // Take next current-stage valid target that is not used and not on-screen.
   while (priorityQueue.length > 0) {
     const n = priorityQueue.shift()
     if (selectedTargets.has(n)) continue
@@ -152,7 +149,6 @@ const drawFromDeck = () => {
     const n = deck.shift()
     if (usedNumbers.has(n)) continue
     if (currentOnScreen.has(n)) continue
-    // extra safety: exclude stage2 targets in stage1 (deck should already exclude)
     if (stage === 1 && stage2Targets.includes(n)) continue
     return n
   }
@@ -160,13 +156,12 @@ const drawFromDeck = () => {
 }
 
 const drawNextNumber = () => {
-  // Prefer remaining current-stage targets (sequentially via priorityQueue)
   const p = drawFromPriority()
   if (p !== null) return p
   return drawFromDeck()
 }
 
-// Prevent unselected valid images from disappearing (otherwise stage may become impossible)
+// Prevent unselected valid images from disappearing
 const refreshImage = (image) => {
   const current = getImgNumber(image)
   if (isValidNow(current) && !selectedTargets.has(current)) {
@@ -185,7 +180,7 @@ const refreshImage = (image) => {
   }, 1000)
 }
 
-// Stage transition: fade entire puzzle, then make next 3 valid images available and refresh non-valid tiles
+// Stage transition: fade entire puzzle, then make next 3 valid images available
 const advanceToStage2 = () => {
   stage = 2
   priorityQueue = shuffle([...stage2Targets])
@@ -216,26 +211,24 @@ for (let i = 0; i < 3; i++) {
     const image = document.createElement("img")
     image.classList.add("solve-image")
 
-    // Initial fill: first three draws from priorityQueue will be stage-1 valid images (4/5/6)
+    // Initial fill: stage-1 valid images appear first (4/5/6), then fillers
     setImageNumber(image, drawNextNumber())
 
     image.addEventListener("click", () => {
       const num = getImgNumber(image)
 
-      // If user clicks a valid image (for the current stage), mark it selected, then replace it
+      // valid click
       if (isValidNow(num) && !selectedTargets.has(num)) {
         selectedTargets.add(num)
         refreshImage(image)
 
-        // If stage 1 is complete, fade and reveal the other three valid images
         if (stage === 1 && stage1Targets.every(n => selectedTargets.has(n))) {
           advanceToStage2()
         }
-
         return
       }
 
-      // Clicking anything else is an invalid selection
+      // invalid click
       hasInvalidSelection = true
       refreshImage(image)
     })
@@ -247,9 +240,7 @@ for (let i = 0; i < 3; i++) {
 
 fadeAllIfNoValidVisible()
 
-// Verify succeeds only if:
-// - all required targets were selected
-// - no invalid image was ever selected
+// Verify succeeds only if all targets selected and no invalid selected
 document.getElementById("verify").addEventListener("click", () => {
   const allTargetsSelected = Array.from(requiredTargets).every(n => selectedTargets.has(n))
   if (allTargetsSelected && !hasInvalidSelection) {
@@ -261,7 +252,7 @@ document.getElementById("verify").addEventListener("click", () => {
 })
 
 // Refresh button: refresh all non-valid tiles; keep any unselected valid image visible.
-// This clears the "invalid selected" flag to allow retry.
+// Clears the invalid flag to allow retry.
 const refreshButton = document.getElementById("refresh")
 refreshButton.addEventListener("click", () => {
   refreshButton.style.pointerEvents = "none"
@@ -302,3 +293,4 @@ document.getElementById("audio").addEventListener("click",()=> {
     document.getElementById("solve-image-div").style.display = "none"
     document.getElementById("solve-audio-div").style.display = "block"
 })
+
