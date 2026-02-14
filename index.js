@@ -41,16 +41,17 @@ const captchaMain = document.getElementById("captcha-main-div")
 const success = document.getElementById("success")
 const ytFrame = document.getElementById("yt")
 
-// Replace VIDEO_ID with your YouTube video id (the part after watch?v=...)
-// Example watch URL: https://www.youtube.com/watch?v=VIDEO_ID
-const YT_EMBED_URL = "https://www.youtube.com/watch?v=KfDargQ3jis&t=1s"
+// Make sure success is hidden on load even if CSS fails
+if (success) success.classList.add("hidden")
+
+// Your video: https://www.youtube.com/watch?v=KfDargQ3jis&t=1s
+// Embed format + start time in seconds.
+// Autoplay is more reliable with mute=1.
+const YT_EMBED_URL = "https://www.youtube.com/embed/KfDargQ3jis?start=1&autoplay=1&mute=1"
 
 function showSuccess() {
-  // Hide captcha UI and show success UI
   if (captchaMain) captchaMain.classList.add("hidden")
   if (success) success.classList.remove("hidden")
-
-  // Load the video only after success
   if (ytFrame) ytFrame.src = YT_EMBED_URL
 }
 
@@ -239,8 +240,6 @@ const advanceToStage2 = () => {
       setImageNumber(gridImages[positions[k]], targets[k])
     }
 
-    // For the other tiles: if they are (unselected) stage-2 valid, keep; otherwise leave as-is.
-    // (No forced refills here – avoids consuming fillers unexpectedly.)
     fadeAllIfNoValidVisible()
   }, 500)
 }
@@ -259,7 +258,6 @@ document.getElementById("verify").addEventListener("click", () => {
     document.getElementById("solve-image-error-msg").style.display = "none"
     document.getElementById("solve-box").style.display = "none"
 
-    // NEW: show congrats + video
     showSuccess()
   } else {
     document.getElementById("solve-image-error-msg").style.display = "block"
@@ -305,5 +303,3 @@ document.getElementById("audio").addEventListener("click", () => {
   document.getElementById("solve-image-div").style.display = "none"
   document.getElementById("solve-audio-div").style.display = "block"
 })
-
-
