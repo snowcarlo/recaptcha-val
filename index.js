@@ -42,9 +42,8 @@ const captchaMain = document.getElementById("captcha-main-div")
 const success = document.getElementById("success")
 const ytFrame = document.getElementById("yt")
 
-// Your video: https://www.youtube.com/watch?v=KfDargQ3jis&t=1s
-// Use embed URL + start time in seconds. Autoplay is more reliable with mute=1.
-const YT_EMBED_URL = "https://youtu.be/KfDargQ3jis?si=_5e6fITznBiPsIlI?start=1"
+// Correct embed URL (not youtu.be, not watch?v=). Unmuted.
+const YT_EMBED_URL = "https://www.youtube.com/embed/KfDargQ3jis?start=1&autoplay=1"
 
 function showSuccess() {
   if (captchaMain) captchaMain.style.display = "none"
@@ -68,6 +67,9 @@ let hasInvalidSelection = false
 const usedNumbers = new Set()
 // Never show any image more than once at the same time
 const currentOnScreen = new Set()
+
+// IMPORTANT FIX: track pending refresh timeouts per tile, so they cannot overwrite stage 2 targets
+const pendingRefreshTimeoutByImg = new Map()
 
 const getImgNumber = (imgEl) => {
   const src = imgEl.getAttribute("src") || ""
@@ -95,7 +97,6 @@ const isAnyValidVisibleNow = () => {
 }
 
 // Filler deck: only non-target images 1..imageCount excluding 4..9.
-// Shuffled once and then consumed sequentially (no random each time).
 const fillerNumbers = []
 for (let n = 1; n <= imageCount; n++) {
   if (!requiredTargets.has(n)) fillerNumbers.push(n)
@@ -192,15 +193,25 @@ const refreshToFiller = (image) => {
   const current = getImgNumber(image)
   if (isValidNow(current) && !selectedTargets.has(current)) return
 
+  // FIX: cancel any previous pending timeout for this image
+  const prior = pendingRefreshTimeoutByImg.get(image)
+  if (prior) {
+    clearTimeout(prior)
+    pendingRefreshTimeoutByImg.delete(image)
+  }
+
   image.classList.add("fade-out")
   image.style.pointerEvents = "none"
 
-  setTimeout(() => {
+  const timeoutId = setTimeout(() => {
+    pendingRefreshTimeoutByImg.delete(image)
     setImageNumber(image, drawFiller())
     fadeAllIfNoValidVisible()
     image.classList.remove("fade-out")
     image.style.pointerEvents = "auto"
   }, 1000)
+
+  pendingRefreshTimeoutByImg.set(image, timeoutId)
 }
 
 // Place the three stage-1 valid images into RANDOM positions, not “top row”.
@@ -221,9 +232,22 @@ const initialFillStage1 = () => {
   fadeAllIfNoValidVisible()
 }
 
+// FIX: ensure no pending refresh can overwrite stage-2 targets
+const cancelAllPendingTileRefreshes = () => {
+  for (const [imgEl, timeoutId] of pendingRefreshTimeoutByImg.entries()) {
+    clearTimeout(timeoutId)
+    imgEl.classList.remove("fade-out")
+    imgEl.style.pointerEvents = "auto"
+  }
+  pendingRefreshTimeoutByImg.clear()
+}
+
 // Stage transition: fade, then place stage-2 valid images in RANDOM positions.
 const advanceToStage2 = () => {
   stage = 2
+
+  // FIX: cancel any in-flight tile refresh that might overwrite the new targets
+  cancelAllPendingTileRefreshes()
 
   solveImageContainer.classList.add("fade-out")
   setTimeout(() => {
@@ -234,7 +258,10 @@ const advanceToStage2 = () => {
 
     // Place 3 stage-2 targets into random positions (overwrite whatever was there)
     for (let k = 0; k < 3; k++) {
-      setImageNumber(gridImages[positions[k]], targets[k])
+      const imgEl = gridImages[positions[k]]
+      imgEl.classList.remove("fade-out")
+      imgEl.style.pointerEvents = "auto"
+      setImageNumber(imgEl, targets[k])
     }
 
     fadeAllIfNoValidVisible()
@@ -254,7 +281,6 @@ document.getElementById("verify").addEventListener("click", () => {
   if (allTargetsSelected && !hasInvalidSelection) {
     document.getElementById("solve-image-error-msg").style.display = "none"
     document.getElementById("solve-box").style.display = "none"
-
     showSuccess()
   } else {
     document.getElementById("solve-image-error-msg").style.display = "block"
@@ -271,6 +297,9 @@ refreshButton.addEventListener("click", () => {
 
   setTimeout(() => {
     solveImageContainer.classList.remove("fade-out")
+
+    // Also cancel in-flight refreshes when user hits refresh
+    cancelAllPendingTileRefreshes()
 
     hasInvalidSelection = false
 
@@ -301,4 +330,3 @@ document.getElementById("audio").addEventListener("click", () => {
   document.getElementById("solve-audio-div").style.display = "block"
 })
 
-// Verify
