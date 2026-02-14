@@ -44,7 +44,7 @@ const ytFrame = document.getElementById("yt")
 
 // Your video: https://www.youtube.com/watch?v=KfDargQ3jis&t=1s
 // Use embed URL + start time in seconds. Autoplay is more reliable with mute=1.
-const YT_EMBED_URL = "https://www.youtube.com/embed/KfDargQ3jis?start=1&autoplay=1&mute=1"
+const YT_EMBED_URL = "https://www.youtube.com/embed/KfDargQ3jis?start=1&autoplay=1"
 
 function showSuccess() {
   if (captchaMain) captchaMain.style.display = "none"
