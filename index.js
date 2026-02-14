@@ -1,48 +1,65 @@
 // make the checkbox div focusable
 const captchaCheckbox = document.getElementById("captcha-checkbox")
 const checkboxSpinner = document.getElementById("captcha-checkbox-spinner")
-captchaCheckbox.addEventListener("mousedown",()=> {
-    captchaCheckbox.classList.add("focused")
-    captchaCheckbox.classList.remove("blurred")
+
+captchaCheckbox.addEventListener("mousedown", () => {
+  captchaCheckbox.classList.add("focused")
+  captchaCheckbox.classList.remove("blurred")
 })
 
-captchaCheckbox.addEventListener("mouseup",()=> {
-    captchaCheckbox.classList.add("blurred")
-    captchaCheckbox.classList.remove("focused")
+captchaCheckbox.addEventListener("mouseup", () => {
+  captchaCheckbox.classList.add("blurred")
+  captchaCheckbox.classList.remove("focused")
 })
 
-captchaCheckbox.addEventListener("click",()=> {
-    checkboxSpinner.style.display = "block"
-    captchaCheckbox.style.display = "none"
-    captchaCheckbox.style.visibility = "false"
-    setTimeout(()=>{
-        captchaCheckbox.style.display = "block"
-        checkboxSpinner.style.display = "none"
+captchaCheckbox.addEventListener("click", () => {
+  checkboxSpinner.style.display = "block"
+  captchaCheckbox.style.display = "none"
+  captchaCheckbox.style.visibility = "false"
+  setTimeout(() => {
+    captchaCheckbox.style.display = "block"
+    checkboxSpinner.style.display = "none"
 
-        // show the solve box
-        const solveBox = document.getElementById("solve-box")
-        if (solveBox.style.display == "block") {
-            solveBox.style.display = "none"
-        }
-        else {
-            solveBox.style.display = "block"
-        }
-    },Math.floor(Math.random()*1000)+200)
+    // show the solve box
+    const solveBox = document.getElementById("solve-box")
+    if (solveBox.style.display == "block") {
+      solveBox.style.display = "none"
+    } else {
+      solveBox.style.display = "block"
+    }
+  }, Math.floor(Math.random() * 1000) + 200)
 })
 
 // show error if submit button is click without checking the checkbox
-document.getElementById("submit").addEventListener("click",()=>{
-    document.getElementById("captcha-main-div").classList.add("error")
-    document.getElementById("captcha-error-msg").style.display = "block"
+document.getElementById("submit").addEventListener("click", () => {
+  document.getElementById("captcha-main-div").classList.add("error")
+  document.getElementById("captcha-error-msg").style.display = "block"
 })
 
+// -------------------- SUCCESS (CONGRATS + YOUTUBE) --------------------
+const captchaMain = document.getElementById("captcha-main-div")
+const success = document.getElementById("success")
+const ytFrame = document.getElementById("yt")
+
+// Replace VIDEO_ID with your YouTube video id (the part after watch?v=...)
+// Example watch URL: https://www.youtube.com/watch?v=VIDEO_ID
+const YT_EMBED_URL = "https://www.youtube.com/watch?v=KfDargQ3jis&t=1s"
+
+function showSuccess() {
+  // Hide captcha UI and show success UI
+  if (captchaMain) captchaMain.classList.add("hidden")
+  if (success) success.classList.remove("hidden")
+
+  // Load the video only after success
+  if (ytFrame) ytFrame.src = YT_EMBED_URL
+}
 
 // -------------------- CAPTCHA LOGIC --------------------
 const imageCount = 24
 
 // Targets split into 2 stages: 3 targets first, then the other 3
-const stage1Targets = [4,5,6]
-const stage2Targets = [7,8,9]
+const stage1Targets = [4, 5, 6]
+const stage2Targets = [7, 8, 9]
 const requiredTargets = new Set([...stage1Targets, ...stage2Targets])
 
 let stage = 1 // 1 or 2
@@ -76,7 +93,7 @@ const isValidNow = (n) => n !== null && currentStageTargetSet().has(n)
 
 const isAnyValidVisibleNow = () => {
   const imgs = Array.from(document.querySelectorAll(".solve-image"))
-  return imgs.some(img => isValidNow(getImgNumber(img)))
+  return imgs.some((img) => isValidNow(getImgNumber(img)))
 }
 
 // Filler deck: only non-target images 1..imageCount excluding 4..9.
@@ -120,14 +137,14 @@ const setImageNumber = (imgEl, n) => {
 // brief fade if there are no valid images on screen but there are still valid images to find in the current stage
 const fadeAllIfNoValidVisible = () => {
   const stageTargets = stage === 1 ? stage1Targets : stage2Targets
-  const remaining = stageTargets.filter(n => !selectedTargets.has(n))
+  const remaining = stageTargets.filter((n) => !selectedTargets.has(n))
   if (remaining.length === 0) return
   if (isAnyValidVisibleNow()) return
 
   const imgs = Array.from(document.querySelectorAll(".solve-image"))
-  imgs.forEach(img => img.classList.add("fade-out"))
+  imgs.forEach((img) => img.classList.add("fade-out"))
   setTimeout(() => {
-    imgs.forEach(img => img.classList.remove("fade-out"))
+    imgs.forEach((img) => img.classList.remove("fade-out"))
   }, 300)
 }
 
@@ -154,7 +171,7 @@ for (let i = 0; i < 3; i++) {
         refreshToFiller(image)
 
         // If stage 1 complete, transition to stage 2
-        if (stage === 1 && stage1Targets.every(n => selectedTargets.has(n))) {
+        if (stage === 1 && stage1Targets.every((n) => selectedTargets.has(n))) {
           advanceToStage2()
         }
         return
@@ -234,10 +251,16 @@ initialFillStage1()
 // - all 6 targets selected
 // - no invalid image ever selected
 document.getElementById("verify").addEventListener("click", () => {
-  const allTargetsSelected = Array.from(requiredTargets).every(n => selectedTargets.has(n))
+  const allTargetsSelected = Array.from(requiredTargets).every((n) =>
+    selectedTargets.has(n)
+  )
+
   if (allTargetsSelected && !hasInvalidSelection) {
     document.getElementById("solve-image-error-msg").style.display = "none"
     document.getElementById("solve-box").style.display = "none"
+
+    // NEW: show congrats + video
+    showSuccess()
   } else {
     document.getElementById("solve-image-error-msg").style.display = "block"
   }
@@ -256,7 +279,7 @@ refreshButton.addEventListener("click", () => {
 
     hasInvalidSelection = false
 
-    gridImages.forEach(imgEl => {
+    gridImages.forEach((imgEl) => {
       const num = getImgNumber(imgEl)
       if (isValidNow(num) && !selectedTargets.has(num)) return
       setImageNumber(imgEl, drawFiller())
@@ -267,21 +290,20 @@ refreshButton.addEventListener("click", () => {
   }, 1000)
 })
 
-
 // toggle information
-document.getElementById("information").addEventListener("click",() =>{
-    const information = document.getElementById("information-text")
-    if (information.style.display == "block") {
-        information.style.display = "none"
-    }
-    else {
-        information.style.display = "block"
-    }
+document.getElementById("information").addEventListener("click", () => {
+  const information = document.getElementById("information-text")
+  if (information.style.display == "block") {
+    information.style.display = "none"
+  } else {
+    information.style.display = "block"
+  }
 })
 
 // show audio div
-document.getElementById("audio").addEventListener("click",()=> {
-    document.getElementById("solve-image-div").style.display = "none"
-    document.getElementById("solve-audio-div").style.display = "block"
+document.getElementById("audio").addEventListener("click", () => {
+  document.getElementById("solve-image-div").style.display = "none"
+  document.getElementById("solve-audio-div").style.display = "block"
 })
+
 
