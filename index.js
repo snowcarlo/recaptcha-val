@@ -37,19 +37,21 @@ document.getElementById("submit").addEventListener("click",()=>{
 })
 
 
-// fill up the solve-image-container
+// -------------------- CAPTCHA LOGIC --------------------
 const imageCount = 20
 
-// Valid targets: user must click/select all, then press Verify
-const requiredTargets = new Set([4,5,6,7,8,9])
+// Targets split into 2 stages: 3 targets first, then the other 3
+const stage1Targets = [4,5,6]
+const stage2Targets = [7,8,9]
+const requiredTargets = new Set([...stage1Targets, ...stage2Targets])
+
+let stage = 1 // 1 or 2
 const selectedTargets = new Set()
+let hasInvalidSelection = false
 
-// If any invalid image is clicked/selected, verification must fail
-let invalidSelected = false
-
-// Global no-reuse and no-duplicate-on-screen
-const usedNumbers = new Set()
-const currentOnScreen = new Set()
+// Global constraints
+const usedNumbers = new Set()       // never appear again once used anywhere
+const currentOnScreen = new Set()   // never appear twice at same time
 
 const getImgNumber = (imgEl) => {
   const src = imgEl.getAttribute("src") || ""
@@ -57,14 +59,6 @@ const getImgNumber = (imgEl) => {
   return m ? Number(m[1]) : null
 }
 
-const isTargetNumber = (n) => n !== null && requiredTargets.has(n)
-
-const isAnyTargetVisible = () => {
-  const imgs = Array.from(document.querySelectorAll(".solve-image"))
-  return imgs.some(img => isTargetNumber(getImgNumber(img)))
-}
-
-// Shuffle once (not random on every pick)
 const shuffle = (arr) => {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
@@ -73,34 +67,46 @@ const shuffle = (arr) => {
   return arr
 }
 
-// Build a deck once
-let deck = shuffle(Array.from({ length: imageCount }, (_, i) => i + 1))
+// Priority queue guarantees which valid images appear next.
+// Stage 1 starts with only three valid images.
+let priorityQueue = shuffle([...stage1Targets])
 
-// Remove a specific number from the deck (so it can never appear again)
-const removeFromDeck = (n) => {
-  const idx = deck.indexOf(n)
-  if (idx >= 0) deck.splice(idx, 1)
+// Deck is for non-target filler images; built once and consumed sequentially.
+const nonTargetNumbers = []
+for (let n = 1; n <= imageCount; n++) {
+  if (!requiredTargets.has(n)) nonTargetNumbers.push(n)
+}
+let deck = shuffle(nonTargetNumbers)
+
+const currentStageTargetSet = () => {
+  return stage === 1 ? new Set(stage1Targets) : new Set(stage2Targets)
 }
 
-// Draw next number from deck that is:
-// - not used globally
-// - not currently on screen
-// - not an already-selected target (never reappear)
-const drawNextNumber = () => {
-  while (deck.length > 0) {
-    const n = deck.shift()
+const isValidNow = (n) => {
+  if (n === null) return false
+  return currentStageTargetSet().has(n)
+}
 
-    if (usedNumbers.has(n)) continue
-    if (currentOnScreen.has(n)) continue
-    if (selectedTargets.has(n)) continue
+const isAnyValidVisibleNow = () => {
+  const imgs = Array.from(document.querySelectorAll(".solve-image"))
+  return imgs.some(img => isValidNow(getImgNumber(img)))
+}
 
-    return n
-  }
-  return null
+// brief fade if there are no valid images on screen but there are still valid images to find in the current stage
+const fadeAllIfNoValidVisible = () => {
+  const stageTargets = stage === 1 ? stage1Targets : stage2Targets
+  const remaining = stageTargets.filter(n => !selectedTargets.has(n))
+  if (remaining.length === 0) return
+  if (isAnyValidVisibleNow()) return
+
+  const imgs = Array.from(document.querySelectorAll(".solve-image"))
+  imgs.forEach(img => img.classList.add("fade-out"))
+  setTimeout(() => {
+    imgs.forEach(img => img.classList.remove("fade-out"))
+  }, 300)
 }
 
 const setImageNumber = (imgEl, n) => {
-  // Remove the previous number from "currentOnScreen"
   const prev = getImgNumber(imgEl)
   if (prev !== null) currentOnScreen.delete(prev)
 
@@ -110,7 +116,7 @@ const setImageNumber = (imgEl, n) => {
     return
   }
 
-  // Uses .jpg; ensure your files are ./images/img1.jpg ... ./images/img20.jpg
+  // Uses .jpg by default
   imgEl.setAttribute("src", `./images/img${n}.jpg`)
   imgEl.style.pointerEvents = "auto"
 
@@ -118,21 +124,39 @@ const setImageNumber = (imgEl, n) => {
   currentOnScreen.add(n)
 }
 
-const fadeAllIfNoTargetsVisible = () => {
-  if (selectedTargets.size === requiredTargets.size) return
-  if (isAnyTargetVisible()) return
-
-  const imgs = Array.from(document.querySelectorAll(".solve-image"))
-  imgs.forEach(img => img.classList.add("fade-out"))
-  setTimeout(() => {
-    imgs.forEach(img => img.classList.remove("fade-out"))
-  }, 300)
+const drawFromPriority = () => {
+  // Take the next available priority number that is not used and not on-screen.
+  while (priorityQueue.length > 0) {
+    const n = priorityQueue.shift()
+    if (selectedTargets.has(n)) continue
+    if (usedNumbers.has(n)) continue
+    if (currentOnScreen.has(n)) continue
+    return n
+  }
+  return null
 }
 
-// Do not allow an unselected target to disappear (otherwise it may become impossible)
+const drawFromDeck = () => {
+  while (deck.length > 0) {
+    const n = deck.shift()
+    if (usedNumbers.has(n)) continue
+    if (currentOnScreen.has(n)) continue
+    return n
+  }
+  return null
+}
+
+const drawNextNumber = () => {
+  // Prefer remaining current-stage targets (sequentially via priorityQueue)
+  const p = drawFromPriority()
+  if (p !== null) return p
+  return drawFromDeck()
+}
+
+// Prevent unselected valid images from disappearing (otherwise stage may become impossible)
 const refreshImage = (image) => {
   const current = getImgNumber(image)
-  if (isTargetNumber(current) && !selectedTargets.has(current)) {
+  if (isValidNow(current) && !selectedTargets.has(current)) {
     return
   }
 
@@ -142,31 +166,38 @@ const refreshImage = (image) => {
   setTimeout(() => {
     const n = drawNextNumber()
     setImageNumber(image, n)
-    fadeAllIfNoTargetsVisible()
+    fadeAllIfNoValidVisible()
     image.classList.remove("fade-out")
     image.style.pointerEvents = "auto"
   }, 1000)
 }
 
+// Stage transition: fade entire puzzle, then make next 3 valid images available and refresh non-valid tiles
+const advanceToStage2 = () => {
+  stage = 2
+  priorityQueue = shuffle([...stage2Targets])
 
-// Build 3×3 grid – start with ONLY 3 valid images showing
-const solveImageContainer = document.getElementById("solve-image-main-container")
+  // fade the whole grid
+  solveImageContainer.classList.add("fade-out")
+  setTimeout(() => {
+    solveImageContainer.classList.remove("fade-out")
 
-// pick 3 targets to show at start
-const targetsToShow = shuffle(Array.from(requiredTargets)).slice(0, 3)
-// remove them from deck so they are not drawn again
-targetsToShow.forEach(removeFromDeck)
+    // refresh every tile that is NOT an unselected valid (in stage 2, that means keep 7/8/9 if already visible, otherwise draw them)
+    const imgs = Array.from(document.querySelectorAll(".solve-image"))
+    imgs.forEach(img => {
+      const num = getImgNumber(img)
+      if (isValidNow(num) && !selectedTargets.has(num)) return
+      const n = drawNextNumber()
+      setImageNumber(img, n)
+    })
 
-// pick 6 non-targets to show at start (consume from deck to ensure uniqueness)
-const nonTargetsToShow = []
-while (deck.length > 0 && nonTargetsToShow.length < 6) {
-  const n = deck.shift()
-  if (!requiredTargets.has(n)) nonTargetsToShow.push(n)
+    fadeAllIfNoValidVisible()
+  }, 500)
 }
-// initial pool of 9 images
-const initialNumbers = shuffle([...targetsToShow, ...nonTargetsToShow])
 
-let initIdx = 0
+
+// build 3×3 grid
+const solveImageContainer = document.getElementById("solve-image-main-container")
 for (let i = 0; i < 3; i++) {
   for (let j = 0; j < 3; j++) {
     const imageContainer = document.createElement("div")
@@ -175,20 +206,27 @@ for (let i = 0; i < 3; i++) {
     const image = document.createElement("img")
     image.classList.add("solve-image")
 
-    setImageNumber(image, initialNumbers[initIdx++] ?? drawNextNumber())
+    // Initial fill: first three tiles drawn from priorityQueue will be the 3 stage-1 valid images.
+    setImageNumber(image, drawNextNumber())
 
     image.addEventListener("click", () => {
       const num = getImgNumber(image)
 
-      // Clicking a valid image selects it; then it is replaced and will never appear again
-      if (isTargetNumber(num)) {
-        if (!selectedTargets.has(num)) selectedTargets.add(num)
+      // If user clicks a valid image (for the current stage), mark it selected, then replace it
+      if (isValidNow(num) && !selectedTargets.has(num)) {
+        selectedTargets.add(num)
         refreshImage(image)
+
+        // If stage 1 is complete, fade and reveal the other three valid images
+        if (stage === 1 && stage1Targets.every(n => selectedTargets.has(n))) {
+          advanceToStage2()
+        }
+
         return
       }
 
-      // Clicking an invalid image marks the attempt as invalid
-      invalidSelected = true
+      // If user clicks an invalid image, mark invalid selection and refresh that tile
+      hasInvalidSelection = true
       refreshImage(image)
     })
 
@@ -197,11 +235,14 @@ for (let i = 0; i < 3; i++) {
   }
 }
 
-fadeAllIfNoTargetsVisible()
+fadeAllIfNoValidVisible()
 
-// Verify succeeds only if user selected all targets AND no invalid was selected
+// Verify succeeds only if:
+// - all required targets were selected
+// - no invalid image was ever selected
 document.getElementById("verify").addEventListener("click", () => {
-  if (!invalidSelected && selectedTargets.size === requiredTargets.size) {
+  const allTargetsSelected = Array.from(requiredTargets).every(n => selectedTargets.has(n))
+  if (allTargetsSelected && !hasInvalidSelection) {
     document.getElementById("solve-image-error-msg").style.display = "none"
     document.getElementById("solve-box").style.display = "none"
   } else {
@@ -209,7 +250,8 @@ document.getElementById("verify").addEventListener("click", () => {
   }
 })
 
-// Refresh button: refresh all non-target tiles; keep any unselected targets in place
+// Refresh button: refresh all non-valid tiles; keep any unselected valid image visible.
+// This also clears the "invalid selected" flag to allow retry.
 const refreshButton = document.getElementById("refresh")
 refreshButton.addEventListener("click", () => {
   refreshButton.style.pointerEvents = "none"
@@ -219,14 +261,16 @@ refreshButton.addEventListener("click", () => {
   setTimeout(() => {
     solveImageContainer.classList.remove("fade-out")
 
+    hasInvalidSelection = false
+
     const imgs = Array.from(document.querySelectorAll(".solve-image"))
     imgs.forEach(img => {
       const num = getImgNumber(img)
-      if (isTargetNumber(num) && !selectedTargets.has(num)) return
+      if (isValidNow(num) && !selectedTargets.has(num)) return
       setImageNumber(img, drawNextNumber())
     })
 
-    fadeAllIfNoTargetsVisible()
+    fadeAllIfNoValidVisible()
     refreshButton.style.pointerEvents = "auto"
   }, 1000)
 })
@@ -243,9 +287,10 @@ document.getElementById("information").addEventListener("click",() =>{
     }
 })
 
-// show audio div 
+// show audio div
 document.getElementById("audio").addEventListener("click",()=> {
     document.getElementById("solve-image-div").style.display = "none"
     document.getElementById("solve-audio-div").style.display = "block"
 })
+
 
