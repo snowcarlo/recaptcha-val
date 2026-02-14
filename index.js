@@ -44,9 +44,9 @@ document.getElementById("submit").addEventListener("click",()=>{
 // fill up the solve-image-container
 const imageCount = 15
 
-// RULES: img3.png..img9.png must all be shown at least once; at least 2 targets visible at all times;
+// RULES: img4.png..img9.png must all be shown at least once; at least 2 targets visible at all times;
 // targets must never repeat once shown
-const requiredTargets = new Set([3,4,5,6,7,8,9])
+const requiredTargets = new Set([4,5,6,7,8,9])
 const seenTargets = new Set()
 
 const noteIfTarget = (imgEl) => {
@@ -54,11 +54,11 @@ const noteIfTarget = (imgEl) => {
   const m = src.match(/img(\d+)\.png$/)
   if (!m) return
   const n = Number(m[1])
-  if (n >= 3 && n <= 9) seenTargets.add(n)
+  if (n >= 4 && n <= 9) seenTargets.add(n)
 }
 
 const pickUnseenTarget = () => {
-  const unseen = [3,4,5,6,7,8,9].filter(n => !seenTargets.has(n))
+  const unseen = [4,5,6,7,8,9].filter(n => !seenTargets.has(n))
   if (unseen.length === 0) return null
   return unseen[Math.floor(Math.random() * unseen.length)]
 }
@@ -72,7 +72,7 @@ const pickNewNumber = () => {
   let n
   do {
     n = Math.floor(Math.random() * imageCount) + 1
-  } while (n >= 3 && n <= 9)
+  } while (n >= 4 && n <= 9)
   return n
 }
 
@@ -83,7 +83,7 @@ const ensureAtLeastTwoTargetsVisible = () => {
     const m = src.match(/img(\d+)\.png$/)
     if (!m) return false
     const n = Number(m[1])
-    return n >= 3 && n <= 9
+    return n >= 4 && n <= 9
   }
 
   let targetCount = imgs.filter(isTarget).length
