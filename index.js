@@ -292,5 +292,3 @@ document.getElementById("audio").addEventListener("click",()=> {
     document.getElementById("solve-image-div").style.display = "none"
     document.getElementById("solve-audio-div").style.display = "block"
 })
-
-
