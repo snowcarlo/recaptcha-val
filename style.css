@@ -303,3 +303,24 @@ body {
 #solve-audio-div {
     display: none;
 }
+
+.hidden { display: none; }
+
+#success {
+  max-width: 720px;
+  margin: 24px auto;
+  text-align: center;
+}
+
+#success .video {
+  margin-top: 16px;
+  position: relative;
+  padding-top: 56.25%;
+}
+
+#success .video iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
