@@ -51,7 +51,7 @@ const seenTargets = new Set()
 
 const noteIfTarget = (imgEl) => {
   const src = imgEl.getAttribute("src") || ""
-  const m = src.match(/img(\d+)\.png$/)
+  const m = src.match(/img(\d+)\.(?:jpg|png)$/)
   if (!m) return
   const n = Number(m[1])
   if (n >= 4 && n <= 9) seenTargets.add(n)
@@ -77,10 +77,13 @@ const pickNewNumber = () => {
 }
 
 const ensureAtLeastTwoTargetsVisible = () => {
+  // After all targets have appeared at least once, this constraint no longer applies.
+  if (seenTargets.size === requiredTargets.size) return
+
   const imgs = Array.from(document.querySelectorAll(".solve-image"))
   const isTarget = (imgEl) => {
     const src = imgEl.getAttribute("src") || ""
-    const m = src.match(/img(\d+)\.png$/)
+    const m = src.match(/img(\d+)\.(?:jpg|png)$/)
     if (!m) return false
     const n = Number(m[1])
     return n >= 4 && n <= 9
@@ -95,7 +98,7 @@ const ensureAtLeastTwoTargetsVisible = () => {
   for (let k = 0; k < nonTargets.length && needed > 0; k++) {
     const n = pickUnseenTarget()
     if (n === null) return
-    nonTargets[k].setAttribute("src", `./images/img${n}.png`)
+    nonTargets[k].setAttribute("src", `./images/img${n}.jpg`)
     noteIfTarget(nonTargets[k])
     needed--
   }
@@ -127,7 +130,9 @@ const refreshImage = (image) => {
     image.style.pointerEvents = "none"; //make it unclickable
     setTimeout(()=>{
         image.setAttribute("src","")
-        image.setAttribute("src",`./images/img${Math.floor(Math.random()*imageCount)+1}.jpg`)
+        image.setAttribute("src",`./images/img${pickNewNumber()}.jpg`)
+        noteIfTarget(image)
+        ensureAtLeastTwoTargetsVisible()
         image.classList.remove("fade-out")
         image.style.pointerEvents = "auto"; //make it clickable again
     },1000)
@@ -158,7 +163,7 @@ refreshButton.addEventListener("click",()=>{
                 imageContainer.classList.add("solve-image-container")
         
                 const image = document.createElement("img")
-                image.setAttribute("src",`./images/img${pickNewNumber()}.png`)
+                image.setAttribute("src",`./images/img${pickNewNumber()}.jpg`)
                 image.classList.add("solve-image")
                 noteIfTarget(image)
                 image.addEventListener("click",()=>{
@@ -169,6 +174,7 @@ refreshButton.addEventListener("click",()=>{
                 solveImageContainer.appendChild(imageContainer)
             }
         }
+        ensureAtLeastTwoTargetsVisible()
         refreshButton.style.pointerEvents = "auto"
     },1000)
    
