@@ -43,6 +43,64 @@ document.getElementById("submit").addEventListener("click",()=>{
 
 // fill up the solve-image-container
 const imageCount = 15
+
+// RULES: img3.png..img9.png must all be shown at least once; at least 2 targets visible at all times;
+// targets must never repeat once shown
+const requiredTargets = new Set([3,4,5,6,7,8,9])
+const seenTargets = new Set()
+
+const noteIfTarget = (imgEl) => {
+  const src = imgEl.getAttribute("src") || ""
+  const m = src.match(/img(\d+)\.png$/)
+  if (!m) return
+  const n = Number(m[1])
+  if (n >= 3 && n <= 9) seenTargets.add(n)
+}
+
+const pickUnseenTarget = () => {
+  const unseen = [3,4,5,6,7,8,9].filter(n => !seenTargets.has(n))
+  if (unseen.length === 0) return null
+  return unseen[Math.floor(Math.random() * unseen.length)]
+}
+
+const pickNewNumber = () => {
+  // While targets remain unseen: always pick an unseen target (no repeats)
+  const t = pickUnseenTarget()
+  if (t !== null) return t
+
+  // After all targets seen: only pick non-target images (avoid re-showing targets)
+  let n
+  do {
+    n = Math.floor(Math.random() * imageCount) + 1
+  } while (n >= 3 && n <= 9)
+  return n
+}
+
+const ensureAtLeastTwoTargetsVisible = () => {
+  const imgs = Array.from(document.querySelectorAll(".solve-image"))
+  const isTarget = (imgEl) => {
+    const src = imgEl.getAttribute("src") || ""
+    const m = src.match(/img(\d+)\.png$/)
+    if (!m) return false
+    const n = Number(m[1])
+    return n >= 3 && n <= 9
+  }
+
+  let targetCount = imgs.filter(isTarget).length
+  if (targetCount >= 2) return
+
+  const nonTargets = imgs.filter(img => !isTarget(img))
+  let needed = 2 - targetCount
+
+  for (let k = 0; k < nonTargets.length && needed > 0; k++) {
+    const n = pickUnseenTarget()
+    if (n === null) return
+    nonTargets[k].setAttribute("src", `./images/img${n}.png`)
+    noteIfTarget(nonTargets[k])
+    needed--
+  }
+}
+
 const solveImageContainer = document.getElementById("solve-image-main-container")
 for (let i=0; i<3; i++) {
     for (let j=0; j<3; j++) {
@@ -60,6 +118,9 @@ for (let i=0; i<3; i++) {
     }
 }
 
+// enforce: at least 2 target images visible after initial render
+ensureAtLeastTwoTargetsVisible()
+
 // image on click will refresh new image
 const refreshImage = (image) => {
     image.classList.add("fade-out") //fade out animation
@@ -72,9 +133,14 @@ const refreshImage = (image) => {
     },1000)
 }
 
-// show try again when verify is click
+// verify succeeds only if all targets have been shown at least once
 document.getElementById("verify").addEventListener("click",()=> {
+  if (seenTargets.size === requiredTargets.size) {
+    document.getElementById("solve-image-error-msg").style.display = "none"
+    document.getElementById("solve-box").style.display = "none"
+  } else {
     document.getElementById("solve-image-error-msg").style.display = "block"
+  }
 })
 
 // refresh everything when refresh is clicked
@@ -92,8 +158,9 @@ refreshButton.addEventListener("click",()=>{
                 imageContainer.classList.add("solve-image-container")
         
                 const image = document.createElement("img")
-                image.setAttribute("src",`./images/img${Math.floor(Math.random()*imageCount)+1}.jpg`)
+                image.setAttribute("src",`./images/img${pickNewNumber()}.png`)
                 image.classList.add("solve-image")
+                noteIfTarget(image)
                 image.addEventListener("click",()=>{
                     refreshImage(image)
                 })
